@@ -7821,7 +7821,7 @@ export class MatrixClient extends TypedEventEmitter<EmittedEvents, ClientEventHa
         if (opts.limit !== undefined) {
             body.limit = opts.limit;
         }
-
+        console.log('searchUserDirectory');
         return this.http.authedRequest(undefined, Method.Post, "/user_directory/search", undefined, body);
     }
 
