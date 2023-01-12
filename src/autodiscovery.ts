@@ -221,19 +221,22 @@ export class AutoDiscovery {
 
             // Step 5b: Verify there is an identity server listening on the provided
             // URL.
-            const isResponse = await this.fetchWellKnownObject(
-                `${isUrl}/_matrix/identity/api/v1`,
-            );
-            if (!isResponse || !isResponse.raw || isResponse.action !== AutoDiscoveryAction.SUCCESS) {
-                logger.error("Invalid /api/v1 response");
-                failingClientConfig["m.identity_server"].error =
-                    AutoDiscovery.ERROR_INVALID_IDENTITY_SERVER;
+            const disVerifyIdentity = localStorage.getItem('mx_dis_verify_identity');
+            if (!disVerifyIdentity) {
+                const isResponse = await this.fetchWellKnownObject(
+                    `${isUrl}/_matrix/identity/api/v1`,
+                );
+                if (!isResponse || !isResponse.raw || isResponse.action !== AutoDiscoveryAction.SUCCESS) {
+                    logger.error("Invalid /api/v1 response");
+                    failingClientConfig["m.identity_server"].error =
+                        AutoDiscovery.ERROR_INVALID_IDENTITY_SERVER;
 
-                // Supply the base_url to the caller because they may be ignoring
-                // liveliness errors, like this one.
-                failingClientConfig["m.identity_server"].base_url = isUrl;
+                    // Supply the base_url to the caller because they may be ignoring
+                    // liveliness errors, like this one.
+                    failingClientConfig["m.identity_server"].base_url = isUrl;
 
-                return Promise.resolve(failingClientConfig);
+                    return Promise.resolve(failingClientConfig);
+                }
             }
         }
 
