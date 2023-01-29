@@ -596,6 +596,8 @@ export class MatrixHttpApi {
         queryParams?: Record<string, string | string[] | undefined>,
         data?: CoreOptions["body"],
         opts?: O | number, // number is legacy
+        customHeader?: any,
+        urlPrefix?: string,
     ): IAbortablePromise<ResponseType<T, O>> {
         if (!queryParams) queryParams = {};
         let requestOpts = (opts || {}) as O;
@@ -621,8 +623,10 @@ export class MatrixHttpApi {
             queryParams.access_token = this.opts.accessToken;
         }
 
-        const requestPromise = this.request<T, O>(callback, method, path, queryParams, data, requestOpts);
-
+        if (customHeader) {
+            requestOpts.headers = { ...requestOpts.headers, ...customHeader };
+        }
+        const requestPromise = this.request<T, O>(callback, method, path, queryParams, data, requestOpts, urlPrefix);
         requestPromise.catch((err: MatrixError) => {
             if (err.errcode == 'M_UNKNOWN_TOKEN' && !requestOpts?.inhibitLogoutEmit) {
                 this.eventEmitter.emit(HttpApiEvent.SessionLoggedOut, err);
@@ -673,8 +677,9 @@ export class MatrixHttpApi {
         queryParams?: CoreOptions["qs"],
         data?: CoreOptions["body"],
         opts?: O,
+        urlPrefix?: string,
     ): IAbortablePromise<ResponseType<T, O>> {
-        const prefix = opts?.prefix ?? this.opts.prefix;
+        const prefix = urlPrefix ? urlPrefix : (opts?.prefix ?? this.opts.prefix);
         const baseUrl = opts?.baseUrl ?? this.opts.baseUrl;
         const fullUri = baseUrl + prefix + path;
 
