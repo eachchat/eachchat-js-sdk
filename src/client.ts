@@ -9206,6 +9206,26 @@ export class MatrixClient extends TypedEventEmitter<EmittedEvents, ClientEventHa
             },
         );
     }
+
+    public getContactList(page: number, size: number): Promise<any> {
+        const query = {
+            page: page,
+            size: size,
+        };
+
+        return this.http.authedRequest(
+            undefined,
+            Method.Get,
+            "api/v1/users",
+            query as any,
+            null,
+            null,
+            {
+                "Matrix-Id": localStorage.getItem("mx_user_id"),
+            },
+            "/",
+        );
+    }
 }
 
 /**
