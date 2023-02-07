@@ -9207,6 +9207,7 @@ export class MatrixClient extends TypedEventEmitter<EmittedEvents, ClientEventHa
         );
     }
 
+    // 获取通讯录
     public getContactList(page: number, size: number): Promise<any> {
         const query = {
             page: page,
@@ -9219,6 +9220,22 @@ export class MatrixClient extends TypedEventEmitter<EmittedEvents, ClientEventHa
             "api/v1/users",
             query as any,
             null,
+            null,
+            {
+                "Matrix-Id": localStorage.getItem("mx_user_id"),
+            },
+            "/",
+        );
+    }
+
+    // 提交customSchema表单
+    public sendCustomSchema(data: any): Promise<any> {
+        return this.http.authedRequest(
+            undefined,
+            Method.Post,
+            "api/v1/scatter",
+            null,
+            data,
             null,
             {
                 "Matrix-Id": localStorage.getItem("mx_user_id"),
