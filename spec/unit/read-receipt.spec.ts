@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import MockHttpBackend from 'matrix-mock-request';
+import MockHttpBackend from "matrix-mock-request";
 
-import { ReceiptType } from '../../src/@types/read_receipts';
+import { MAIN_ROOM_TIMELINE, ReceiptType } from "../../src/@types/read_receipts";
 import { MatrixClient } from "../../src/client";
-import { IHttpOpts } from '../../src/http-api';
-import { EventType } from '../../src/matrix';
-import { MAIN_ROOM_TIMELINE } from '../../src/models/read-receipt';
-import { encodeUri } from '../../src/utils';
+import { EventType } from "../../src/matrix";
+import { synthesizeReceipt } from "../../src/models/read-receipt";
+import { encodeUri } from "../../src/utils";
 import * as utils from "../test-utils/test-utils";
 
 // Jest now uses @sinonjs/fake-timers which exposes tickAsync() and a number of
@@ -32,7 +31,7 @@ import * as utils from "../test-utils/test-utils";
 // and avoids assuming anything about the app's behaviour.
 const realSetTimeout = setTimeout;
 function flushPromises() {
-    return new Promise(r => {
+    return new Promise((r) => {
         realSetTimeout(r, 1);
     });
 }
@@ -53,7 +52,7 @@ const threadEvent = utils.mkEvent({
         "m.relates_to": {
             "event_id": THREAD_ID,
             "m.in_reply_to": {
-                "event_id": THREAD_ID,
+                event_id: THREAD_ID,
             },
             "rel_type": "m.thread",
         },
@@ -66,20 +65,9 @@ const roomEvent = utils.mkEvent({
     user: "@bob:matrix.org",
     room: ROOM_ID,
     content: {
-        "body": "Hello from a room",
+        body: "Hello from a room",
     },
 });
-
-function mockServerSideSupport(client, hasServerSideSupport) {
-    const doesServerSupportUnstableFeature = client.doesServerSupportUnstableFeature;
-    client.doesServerSupportUnstableFeature = (unstableFeature) => {
-        if (unstableFeature === "org.matrix.msc3771") {
-            return Promise.resolve(hasServerSideSupport);
-        } else {
-            return doesServerSupportUnstableFeature(unstableFeature);
-        }
-    };
-}
 
 describe("Read receipt", () => {
     beforeEach(() => {
@@ -87,64 +75,89 @@ describe("Read receipt", () => {
         client = new MatrixClient({
             baseUrl: "https://my.home.server",
             accessToken: "my.access.token",
-            request: httpBackend.requestFn as unknown as IHttpOpts["request"],
+            fetchFn: httpBackend.fetchFn as typeof global.fetch,
         });
         client.isGuest = () => false;
     });
 
     describe("sendReceipt", () => {
         it("sends a thread read receipt", async () => {
-            httpBackend.when(
-                "POST", encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
-                    $roomId: ROOM_ID,
-                    $receiptType: ReceiptType.Read,
-                    $eventId: threadEvent.getId(),
-                }),
-            ).check((request) => {
-                expect(request.data.thread_id).toEqual(THREAD_ID);
-            }).respond(200, {});
+            httpBackend
+                .when(
+                    "POST",
+                    encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
+                        $roomId: ROOM_ID,
+                        $receiptType: ReceiptType.Read,
+                        $eventId: threadEvent.getId()!,
+                    }),
+                )
+                .check((request) => {
+                    expect(request.data.thread_id).toEqual(THREAD_ID);
+                })
+                .respond(200, {});
 
-            mockServerSideSupport(client, true);
             client.sendReceipt(threadEvent, ReceiptType.Read, {});
+
+            await httpBackend.flushAllExpected();
+            await flushPromises();
+        });
+
+        it("sends an unthreaded receipt", async () => {
+            httpBackend
+                .when(
+                    "POST",
+                    encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
+                        $roomId: ROOM_ID,
+                        $receiptType: ReceiptType.Read,
+                        $eventId: threadEvent.getId()!,
+                    }),
+                )
+                .check((request) => {
+                    expect(request.data.thread_id).toBeUndefined();
+                })
+                .respond(200, {});
+
+            client.sendReadReceipt(threadEvent, ReceiptType.Read, true);
 
             await httpBackend.flushAllExpected();
             await flushPromises();
         });
 
         it("sends a room read receipt", async () => {
-            httpBackend.when(
-                "POST", encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
-                    $roomId: ROOM_ID,
-                    $receiptType: ReceiptType.Read,
-                    $eventId: roomEvent.getId(),
-                }),
-            ).check((request) => {
-                expect(request.data.thread_id).toEqual(MAIN_ROOM_TIMELINE);
-            }).respond(200, {});
+            httpBackend
+                .when(
+                    "POST",
+                    encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
+                        $roomId: ROOM_ID,
+                        $receiptType: ReceiptType.Read,
+                        $eventId: roomEvent.getId()!,
+                    }),
+                )
+                .check((request) => {
+                    expect(request.data.thread_id).toEqual(MAIN_ROOM_TIMELINE);
+                })
+                .respond(200, {});
 
-            mockServerSideSupport(client, true);
             client.sendReceipt(roomEvent, ReceiptType.Read, {});
 
             await httpBackend.flushAllExpected();
             await flushPromises();
         });
+    });
 
-        it("sends a room read receipt when there's no server support", async () => {
-            httpBackend.when(
-                "POST", encodeUri("/rooms/$roomId/receipt/$receiptType/$eventId", {
-                    $roomId: ROOM_ID,
-                    $receiptType: ReceiptType.Read,
-                    $eventId: threadEvent.getId(),
-                }),
-            ).check((request) => {
-                expect(request.data.thread_id).toBeUndefined();
-            }).respond(200, {});
+    describe("synthesizeReceipt", () => {
+        it.each([
+            { event: roomEvent, destinationId: MAIN_ROOM_TIMELINE },
+            { event: threadEvent, destinationId: threadEvent.threadRootId! },
+        ])("adds the receipt to $destinationId", ({ event, destinationId }) => {
+            const userId = "@bob:example.org";
+            const receiptType = ReceiptType.Read;
 
-            mockServerSideSupport(client, false);
-            client.sendReceipt(threadEvent, ReceiptType.Read, {});
+            const fakeReadReceipt = synthesizeReceipt(userId, event, receiptType);
 
-            await httpBackend.flushAllExpected();
-            await flushPromises();
+            const content = fakeReadReceipt.getContent()[event.getId()!][receiptType][userId];
+
+            expect(content.thread_id).toEqual(destinationId);
         });
     });
 });

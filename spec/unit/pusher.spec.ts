@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import MockHttpBackend from 'matrix-mock-request';
+import MockHttpBackend from "matrix-mock-request";
 
-import { IHttpOpts, MatrixClient, PUSHER_ENABLED } from "../../src/matrix";
-import { mkPusher } from '../test-utils/test-utils';
+import { MatrixClient, PUSHER_ENABLED } from "../../src/matrix";
+import { mkPusher } from "../test-utils/test-utils";
 
 const realSetTimeout = setTimeout;
 function flushPromises() {
-    return new Promise(r => {
+    return new Promise((r) => {
         realSetTimeout(r, 1);
     });
 }
@@ -35,7 +35,7 @@ describe("Pushers", () => {
         client = new MatrixClient({
             baseUrl: "https://my.home.server",
             accessToken: "my.access.token",
-            request: httpBackend.requestFn as unknown as IHttpOpts["request"],
+            fetchFn: httpBackend.fetchFn as typeof global.fetch,
         });
     });
 
