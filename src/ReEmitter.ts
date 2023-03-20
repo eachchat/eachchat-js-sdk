@@ -22,7 +22,7 @@ import { EventEmitter } from "events";
 import { ListenerMap, TypedEventEmitter } from "./models/typed-event-emitter";
 
 export class ReEmitter {
-    constructor(private readonly target: EventEmitter) {}
+    public constructor(private readonly target: EventEmitter) {}
 
     // Map from emitter to event name to re-emitter
     private reEmitters = new Map<EventEmitter, Map<string, (...args: any[]) => void>>();
@@ -38,7 +38,7 @@ export class ReEmitter {
             // We include the source as the last argument for event handlers which may need it,
             // such as read receipt listeners on the client class which won't have the context
             // of the room.
-            const forSource = (...args: any[]) => {
+            const forSource = (...args: any[]): void => {
                 // EventEmitter special cases 'error' to make the emit function throw if no
                 // handler is attached, which sort of makes sense for making sure that something
                 // handles an error, but for re-emitting, there could be a listener on the original
@@ -49,7 +49,7 @@ export class ReEmitter {
                 // later by a different part of the code where 'emit' throwing because the app hasn't
                 // added an error handler isn't terribly helpful. (A better fix in retrospect may
                 // have been to just avoid using the event name 'error', but backwards compat...)
-                if (eventName === 'error' && this.target.listenerCount('error') === 0) return;
+                if (eventName === "error" && this.target.listenerCount("error") === 0) return;
                 this.target.emit(eventName, ...args, source);
             };
             source.on(eventName, forSource);
@@ -62,7 +62,7 @@ export class ReEmitter {
         if (!reEmittersByEvent) return; // We were never re-emitting these events in the first place
 
         for (const eventName of eventNames) {
-            source.off(eventName, reEmittersByEvent.get(eventName));
+            source.off(eventName, reEmittersByEvent.get(eventName)!);
             reEmittersByEvent.delete(eventName);
         }
 
@@ -70,11 +70,8 @@ export class ReEmitter {
     }
 }
 
-export class TypedReEmitter<
-    Events extends string,
-    Arguments extends ListenerMap<Events>,
-> extends ReEmitter {
-    constructor(target: TypedEventEmitter<Events, Arguments>) {
+export class TypedReEmitter<Events extends string, Arguments extends ListenerMap<Events>> extends ReEmitter {
+    public constructor(target: TypedEventEmitter<Events, Arguments>) {
         super(target);
     }
 

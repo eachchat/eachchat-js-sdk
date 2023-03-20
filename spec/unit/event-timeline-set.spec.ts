@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Matrix.org Foundation C.I.C.
+Copyright 2022 - 2023 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,13 +24,16 @@ import {
     MatrixClient,
     MatrixEvent,
     MatrixEventEvent,
+    RelationType,
     Room,
-} from '../../src';
-import { Thread } from "../../src/models/thread";
+    RoomEvent,
+} from "../../src";
+import { FeatureSupport, Thread } from "../../src/models/thread";
 import { ReEmitter } from "../../src/ReEmitter";
+import { eventMapperFor } from "../../src/event-mapper";
 
-describe('EventTimelineSet', () => {
-    const roomId = '!foo:bar';
+describe("EventTimelineSet", () => {
+    const roomId = "!foo:bar";
     const userA = "@alice:bar";
 
     let room: Room;
@@ -42,41 +45,62 @@ describe('EventTimelineSet', () => {
     let replyEvent: MatrixEvent;
 
     const itShouldReturnTheRelatedEvents = () => {
-        it('should return the related events', () => {
+        it("should return the related events", () => {
             eventTimelineSet.relations.aggregateChildEvent(messageEvent);
             const relations = eventTimelineSet.relations.getChildEventsForEvent(
-                messageEvent.getId(),
+                messageEvent.getId()!,
                 "m.in_reply_to",
                 EventType.RoomMessage,
             );
             expect(relations).toBeDefined();
-            expect(relations.getRelations().length).toBe(1);
-            expect(relations.getRelations()[0].getId()).toBe(replyEvent.getId());
+            expect(relations!.getRelations().length).toBe(1);
+            expect(relations!.getRelations()[0].getId()).toBe(replyEvent.getId());
         });
     };
 
+    const mkThreadResponse = (root: MatrixEvent) =>
+        utils.mkEvent(
+            {
+                event: true,
+                type: EventType.RoomMessage,
+                user: userA,
+                room: roomId,
+                content: {
+                    "body": "Thread response :: " + Math.random(),
+                    "m.relates_to": {
+                        "event_id": root.getId(),
+                        "m.in_reply_to": {
+                            event_id: root.getId(),
+                        },
+                        "rel_type": "m.thread",
+                    },
+                },
+            },
+            room.client,
+        );
+
     beforeEach(() => {
-        client = utils.mock(MatrixClient, 'MatrixClient');
-        client.reEmitter = utils.mock(ReEmitter, 'ReEmitter');
+        client = utils.mock(MatrixClient, "MatrixClient");
+        client.reEmitter = utils.mock(ReEmitter, "ReEmitter");
         room = new Room(roomId, client, userA);
         eventTimelineSet = new EventTimelineSet(room);
         eventTimeline = new EventTimeline(eventTimelineSet);
         messageEvent = utils.mkMessage({
             room: roomId,
             user: userA,
-            msg: 'Hi!',
+            msg: "Hi!",
             event: true,
         });
         replyEvent = utils.mkReplyMessage({
             room: roomId,
             user: userA,
-            msg: 'Hoo!',
+            msg: "Hoo!",
             event: true,
             replyToMessage: messageEvent,
         });
     });
 
-    describe('addLiveEvent', () => {
+    describe("addLiveEvent", () => {
         it("Adds event to the live timeline in the timeline set", () => {
             const liveTimeline = eventTimelineSet.getLiveTimeline();
             expect(liveTimeline.getEvents().length).toStrictEqual(0);
@@ -94,7 +118,10 @@ describe('EventTimelineSet', () => {
 
             // make a duplicate
             const duplicateMessageEvent = utils.mkMessage({
-                room: roomId, user: userA, msg: "dupe", event: true,
+                room: roomId,
+                user: userA,
+                msg: "dupe",
+                event: true,
             });
             duplicateMessageEvent.event.event_id = messageEvent.getId();
 
@@ -116,7 +143,14 @@ describe('EventTimelineSet', () => {
         });
     });
 
-    describe('addEventToTimeline', () => {
+    describe("addEventToTimeline", () => {
+        let thread: Thread;
+
+        beforeEach(() => {
+            (client.supportsThreads as jest.Mock).mockReturnValue(true);
+            thread = new Thread("!thread_id:server", messageEvent, { room, client });
+        });
+
         it("Adds event to timeline", () => {
             const liveTimeline = eventTimelineSet.getLiveTimeline();
             expect(liveTimeline.getEvents().length).toStrictEqual(0);
@@ -129,41 +163,158 @@ describe('EventTimelineSet', () => {
         it("Make sure legacy overload passing options directly as parameters still works", () => {
             const liveTimeline = eventTimelineSet.getLiveTimeline();
             expect(() => {
-                eventTimelineSet.addEventToTimeline(
-                    messageEvent,
-                    liveTimeline,
-                    true,
-                );
+                eventTimelineSet.addEventToTimeline(messageEvent, liveTimeline, true);
             }).not.toThrow();
             expect(() => {
-                eventTimelineSet.addEventToTimeline(
-                    messageEvent,
-                    liveTimeline,
-                    true,
-                    false,
-                );
+                eventTimelineSet.addEventToTimeline(messageEvent, liveTimeline, true, false);
             }).not.toThrow();
+        });
+
+        it("should not add an event to a timeline that does not belong to the timelineSet", () => {
+            const eventTimelineSet2 = new EventTimelineSet(room);
+            const liveTimeline2 = eventTimelineSet2.getLiveTimeline();
+            expect(liveTimeline2.getEvents().length).toStrictEqual(0);
+
+            expect(() => {
+                eventTimelineSet.addEventToTimeline(messageEvent, liveTimeline2, {
+                    toStartOfTimeline: true,
+                });
+            }).toThrow();
+        });
+
+        it("should not add a threaded reply to the main room timeline", () => {
+            const liveTimeline = eventTimelineSet.getLiveTimeline();
+            expect(liveTimeline.getEvents().length).toStrictEqual(0);
+
+            const threadedReplyEvent = mkThreadResponse(messageEvent);
+
+            eventTimelineSet.addEventToTimeline(threadedReplyEvent, liveTimeline, {
+                toStartOfTimeline: true,
+            });
+            expect(liveTimeline.getEvents().length).toStrictEqual(0);
+        });
+
+        it("should not add a normal message to the timelineSet representing a thread", () => {
+            const eventTimelineSetForThread = new EventTimelineSet(room, {}, client, thread);
+            const liveTimeline = eventTimelineSetForThread.getLiveTimeline();
+            expect(liveTimeline.getEvents().length).toStrictEqual(0);
+
+            eventTimelineSetForThread.addEventToTimeline(messageEvent, liveTimeline, {
+                toStartOfTimeline: true,
+            });
+            expect(liveTimeline.getEvents().length).toStrictEqual(0);
+        });
+
+        it("should allow edits to be added to thread timeline", async () => {
+            jest.spyOn(client, "supportsThreads").mockReturnValue(true);
+            jest.spyOn(client, "getEventMapper").mockReturnValue(eventMapperFor(client, {}));
+            Thread.hasServerSideSupport = FeatureSupport.Stable;
+
+            const sender = "@alice:matrix.org";
+
+            const root = utils.mkEvent({
+                event: true,
+                content: {
+                    body: "Thread root",
+                },
+                type: EventType.RoomMessage,
+                sender,
+            });
+            room.addLiveEvents([root]);
+
+            const threadReply = utils.mkEvent({
+                event: true,
+                content: {
+                    "body": "Thread reply",
+                    "m.relates_to": {
+                        event_id: root.getId()!,
+                        rel_type: RelationType.Thread,
+                    },
+                },
+                type: EventType.RoomMessage,
+                sender,
+            });
+
+            root.setUnsigned({
+                "m.relations": {
+                    [RelationType.Thread]: {
+                        count: 1,
+                        latest_event: {
+                            content: threadReply.getContent(),
+                            origin_server_ts: 5,
+                            room_id: room.roomId,
+                            sender,
+                            type: EventType.RoomMessage,
+                            event_id: threadReply.getId()!,
+                            user_id: sender,
+                            age: 1,
+                        },
+                        current_user_participated: true,
+                    },
+                },
+            });
+
+            const editToThreadReply = utils.mkEvent({
+                event: true,
+                content: {
+                    "body": " * edit",
+                    "m.new_content": {
+                        "body": "edit",
+                        "msgtype": "m.text",
+                        "org.matrix.msc1767.text": "edit",
+                    },
+                    "m.relates_to": {
+                        event_id: threadReply.getId()!,
+                        rel_type: RelationType.Replace,
+                    },
+                },
+                type: EventType.RoomMessage,
+                sender,
+            });
+
+            jest.spyOn(client, "paginateEventTimeline").mockImplementation(async () => {
+                thread.timelineSet.getLiveTimeline().addEvent(threadReply, { toStartOfTimeline: true });
+                return true;
+            });
+            jest.spyOn(client, "relations").mockResolvedValue({
+                events: [],
+            });
+
+            const thread = room.createThread(root.getId()!, root, [threadReply, editToThreadReply], false);
+            thread.once(RoomEvent.TimelineReset, () => {
+                const lastEvent = thread.timeline.at(-1)!;
+                expect(lastEvent.getContent().body).toBe(" * edit");
+            });
+        });
+
+        describe("non-room timeline", () => {
+            it("Adds event to timeline", () => {
+                const nonRoomEventTimelineSet = new EventTimelineSet(
+                    // This is what we're specifically testing against, a timeline
+                    // without a `room` defined
+                    undefined,
+                );
+                const nonRoomEventTimeline = new EventTimeline(nonRoomEventTimelineSet);
+
+                expect(nonRoomEventTimeline.getEvents().length).toStrictEqual(0);
+                nonRoomEventTimelineSet.addEventToTimeline(messageEvent, nonRoomEventTimeline, {
+                    toStartOfTimeline: true,
+                });
+                expect(nonRoomEventTimeline.getEvents().length).toStrictEqual(1);
+            });
         });
     });
 
-    describe('aggregateRelations', () => {
-        describe('with unencrypted events', () => {
+    describe("aggregateRelations", () => {
+        describe("with unencrypted events", () => {
             beforeEach(() => {
-                eventTimelineSet.addEventsToTimeline(
-                    [
-                        messageEvent,
-                        replyEvent,
-                    ],
-                    true,
-                    eventTimeline,
-                    'foo',
-                );
+                eventTimelineSet.addEventsToTimeline([messageEvent, replyEvent], true, eventTimeline, "foo");
             });
 
             itShouldReturnTheRelatedEvents();
         });
 
-        describe('with events to be decrypted', () => {
+        describe("with events to be decrypted", () => {
             let messageEventShouldAttemptDecryptionSpy: jest.SpyInstance;
             let messageEventIsDecryptionFailureSpy: jest.SpyInstance;
 
@@ -171,36 +322,28 @@ describe('EventTimelineSet', () => {
             let replyEventIsDecryptionFailureSpy: jest.SpyInstance;
 
             beforeEach(() => {
-                messageEventShouldAttemptDecryptionSpy = jest.spyOn(messageEvent, 'shouldAttemptDecryption');
+                messageEventShouldAttemptDecryptionSpy = jest.spyOn(messageEvent, "shouldAttemptDecryption");
                 messageEventShouldAttemptDecryptionSpy.mockReturnValue(true);
-                messageEventIsDecryptionFailureSpy = jest.spyOn(messageEvent, 'isDecryptionFailure');
+                messageEventIsDecryptionFailureSpy = jest.spyOn(messageEvent, "isDecryptionFailure");
 
-                replyEventShouldAttemptDecryptionSpy = jest.spyOn(replyEvent, 'shouldAttemptDecryption');
+                replyEventShouldAttemptDecryptionSpy = jest.spyOn(replyEvent, "shouldAttemptDecryption");
                 replyEventShouldAttemptDecryptionSpy.mockReturnValue(true);
-                replyEventIsDecryptionFailureSpy = jest.spyOn(messageEvent, 'isDecryptionFailure');
+                replyEventIsDecryptionFailureSpy = jest.spyOn(messageEvent, "isDecryptionFailure");
 
-                eventTimelineSet.addEventsToTimeline(
-                    [
-                        messageEvent,
-                        replyEvent,
-                    ],
-                    true,
-                    eventTimeline,
-                    'foo',
-                );
+                eventTimelineSet.addEventsToTimeline([messageEvent, replyEvent], true, eventTimeline, "foo");
             });
 
-            it('should not return the related events', () => {
+            it("should not return the related events", () => {
                 eventTimelineSet.relations.aggregateChildEvent(messageEvent);
                 const relations = eventTimelineSet.relations.getChildEventsForEvent(
-                    messageEvent.getId(),
+                    messageEvent.getId()!,
                     "m.in_reply_to",
                     EventType.RoomMessage,
                 );
                 expect(relations).toBeUndefined();
             });
 
-            describe('after decryption', () => {
+            describe("after decryption", () => {
                 beforeEach(() => {
                     // simulate decryption failure once
                     messageEventIsDecryptionFailureSpy.mockReturnValue(true);
@@ -226,33 +369,37 @@ describe('EventTimelineSet', () => {
     });
 
     describe("canContain", () => {
-        const mkThreadResponse = (root: MatrixEvent) => utils.mkEvent({
-            event: true,
-            type: EventType.RoomMessage,
-            user: userA,
-            room: roomId,
-            content: {
-                "body": "Thread response :: " + Math.random(),
-                "m.relates_to": {
-                    "event_id": root.getId(),
-                    "m.in_reply_to": {
-                        "event_id": root.getId(),
+        const mkThreadResponse = (root: MatrixEvent) =>
+            utils.mkEvent(
+                {
+                    event: true,
+                    type: EventType.RoomMessage,
+                    user: userA,
+                    room: roomId,
+                    content: {
+                        "body": "Thread response :: " + Math.random(),
+                        "m.relates_to": {
+                            "event_id": root.getId(),
+                            "m.in_reply_to": {
+                                event_id: root.getId()!,
+                            },
+                            "rel_type": "m.thread",
+                        },
                     },
-                    "rel_type": "m.thread",
                 },
-            },
-        }, room.client);
+                room.client,
+            );
 
         let thread: Thread;
 
         beforeEach(() => {
-            (client.supportsExperimentalThreads as jest.Mock).mockReturnValue(true);
+            (client.supportsThreads as jest.Mock).mockReturnValue(true);
             thread = new Thread("!thread_id:server", messageEvent, { room, client });
         });
 
         it("should throw if timeline set has no room", () => {
             const eventTimelineSet = new EventTimelineSet(undefined, {}, client);
-            expect(() => eventTimelineSet.canContain(messageEvent)).toThrowError();
+            expect(() => eventTimelineSet.canContain(messageEvent)).toThrow();
         });
 
         it("should return false if timeline set is for thread but event is not threaded", () => {
@@ -278,14 +425,14 @@ describe('EventTimelineSet', () => {
         });
 
         it("should return true if the timeline set is for a thread and the event is its thread root", () => {
-            const thread = new Thread(messageEvent.getId(), messageEvent, { room, client });
+            const thread = new Thread(messageEvent.getId()!, messageEvent, { room, client });
             const eventTimelineSet = new EventTimelineSet(room, {}, client, thread);
             messageEvent.setThread(thread);
             expect(eventTimelineSet.canContain(messageEvent)).toBeTruthy();
         });
 
         it("should return true if the timeline set is for a thread and the event is a response to it", () => {
-            const thread = new Thread(messageEvent.getId(), messageEvent, { room, client });
+            const thread = new Thread(messageEvent.getId()!, messageEvent, { room, client });
             const eventTimelineSet = new EventTimelineSet(room, {}, client, thread);
             messageEvent.setThread(thread);
             const event = mkThreadResponse(messageEvent);
@@ -310,7 +457,7 @@ describe('EventTimelineSet', () => {
                 content: { body: "test" },
                 event_id: "!test1:server",
             });
-            eventTimelineSet.handleRemoteEcho(roomMessageEvent, "~!local-event-id:server", roomMessageEvent.getId());
+            eventTimelineSet.handleRemoteEcho(roomMessageEvent, "~!local-event-id:server", roomMessageEvent.getId()!);
             expect(eventTimelineSet.getLiveTimeline().getEvents()).toContain(roomMessageEvent);
 
             const roomFilteredEvent = new MatrixEvent({
@@ -318,7 +465,7 @@ describe('EventTimelineSet', () => {
                 content: { body: "test" },
                 event_id: "!test2:server",
             });
-            eventTimelineSet.handleRemoteEcho(roomFilteredEvent, "~!local-event-id:server", roomFilteredEvent.getId());
+            eventTimelineSet.handleRemoteEcho(roomFilteredEvent, "~!local-event-id:server", roomFilteredEvent.getId()!);
             expect(eventTimelineSet.getLiveTimeline().getEvents()).not.toContain(roomFilteredEvent);
         });
     });
