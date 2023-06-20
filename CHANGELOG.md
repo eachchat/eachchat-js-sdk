@@ -1,3 +1,117 @@
+Changes in [26.0.1](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v26.0.1) (2023-06-09)
+==================================================================================================
+
+## 🐛 Bug Fixes
+ * Fix: handle `baseUrl` with trailing slash in `fetch.getUrl` ([\#3455](https://github.com/matrix-org/matrix-js-sdk/pull/3455)). Fixes vector-im/element-web#25526. Contributed by @kerryarchibald.
+
+Changes in [26.0.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v26.0.0) (2023-06-06)
+==================================================================================================
+
+## 🚨 BREAKING CHANGES
+ * Ensure we do not add relations to the wrong timeline ([\#3427](https://github.com/matrix-org/matrix-js-sdk/pull/3427)). Fixes vector-im/element-web#25450 and vector-im/element-web#25494.
+ * Deprecate `QrCodeEvent`, `SasEvent` and `VerificationEvent` ([\#3386](https://github.com/matrix-org/matrix-js-sdk/pull/3386)).
+
+## 🦖 Deprecations
+ * Move crypto classes into a separate namespace ([\#3385](https://github.com/matrix-org/matrix-js-sdk/pull/3385)).
+
+## ✨ Features
+ * Mention deno support in the README ([\#3417](https://github.com/matrix-org/matrix-js-sdk/pull/3417)). Contributed by @sigmaSd.
+ * Mark room version 10 as safe ([\#3425](https://github.com/matrix-org/matrix-js-sdk/pull/3425)).
+ * Prioritise entirely supported flows for UIA ([\#3402](https://github.com/matrix-org/matrix-js-sdk/pull/3402)).
+ * Add methods to terminate idb worker ([\#3362](https://github.com/matrix-org/matrix-js-sdk/pull/3362)).
+ * Total summary count ([\#3351](https://github.com/matrix-org/matrix-js-sdk/pull/3351)). Contributed by @toger5.
+ * Audio concealment ([\#3349](https://github.com/matrix-org/matrix-js-sdk/pull/3349)). Contributed by @toger5.
+
+## 🐛 Bug Fixes
+ * Correctly accumulate sync summaries. ([\#3366](https://github.com/matrix-org/matrix-js-sdk/pull/3366)). Fixes vector-im/element-web#23345.
+ * Keep measuring a call feed's volume after a stream replacement ([\#3361](https://github.com/matrix-org/matrix-js-sdk/pull/3361)). Fixes vector-im/element-call#1051.
+ * Element-R: Avoid uploading a new fallback key at every `/sync` ([\#3338](https://github.com/matrix-org/matrix-js-sdk/pull/3338)). Fixes vector-im/element-web#25215.
+ * Accumulate receipts for the main thread and unthreaded separately ([\#3339](https://github.com/matrix-org/matrix-js-sdk/pull/3339)). Fixes vector-im/element-web#24629.
+ * Remove spec non-compliant extended glob format ([\#3423](https://github.com/matrix-org/matrix-js-sdk/pull/3423)). Fixes vector-im/element-web#25474.
+ * Fix bug where original event was inserted into timeline instead of the edit event ([\#3398](https://github.com/matrix-org/matrix-js-sdk/pull/3398)). Contributed by @andybalaam.
+ * Only add a local receipt if it's after an existing receipt ([\#3399](https://github.com/matrix-org/matrix-js-sdk/pull/3399)). Contributed by @andybalaam.
+ * Attempt a potential workaround for stuck notifs ([\#3384](https://github.com/matrix-org/matrix-js-sdk/pull/3384)). Fixes vector-im/element-web#25406. Contributed by @andybalaam.
+ * Fix verification bug with `pendingEventOrdering: "chronological"` ([\#3382](https://github.com/matrix-org/matrix-js-sdk/pull/3382)).
+
+Changes in [25.1.1](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v25.1.1) (2023-05-16)
+==================================================================================================
+
+## 🐛 Bug Fixes
+ * Rebuild to fix packaging glitch in 25.1.0. Fixes #3363
+
+Changes in [25.1.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v25.1.0) (2023-05-09)
+==================================================================================================
+
+## 🦖 Deprecations
+ * Deprecate MatrixClient::resolveRoomAlias ([\#3316](https://github.com/matrix-org/matrix-js-sdk/pull/3316)).
+
+## ✨ Features
+ * add client method to remove pusher ([\#3324](https://github.com/matrix-org/matrix-js-sdk/pull/3324)). Contributed by @kerryarchibald.
+ * Implement MSC 3981 ([\#3248](https://github.com/matrix-org/matrix-js-sdk/pull/3248)). Fixes vector-im/element-web#25021. Contributed by @justjanne.
+ * Added `Room.getLastLiveEvent` and `Room.getLastThread`. Deprecated `Room.lastThread` in favour of `Room.getLastThread`. ([\#3321](https://github.com/matrix-org/matrix-js-sdk/pull/3321)).
+ * Element-R: wire up device lists ([\#3272](https://github.com/matrix-org/matrix-js-sdk/pull/3272)). Contributed by @florianduros.
+ * Node 20 support ([\#3302](https://github.com/matrix-org/matrix-js-sdk/pull/3302)).
+
+## 🐛 Bug Fixes
+ * Fix racing between one-time-keys processing and sync ([\#3327](https://github.com/matrix-org/matrix-js-sdk/pull/3327)). Fixes vector-im/element-web#25214. Contributed by @florianduros.
+ * Fix lack of media when a user reconnects ([\#3318](https://github.com/matrix-org/matrix-js-sdk/pull/3318)).
+ * Fix TimelineWindow getEvents exploding if no neigbouring timeline ([\#3285](https://github.com/matrix-org/matrix-js-sdk/pull/3285)). Fixes vector-im/element-web#25104.
+
+Changes in [25.0.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v25.0.0) (2023-04-25)
+==================================================================================================
+
+## 🚨 BREAKING CHANGES
+ * Change `Store.save()` to return a `Promise` ([\#3221](https://github.com/matrix-org/matrix-js-sdk/pull/3221)). Contributed by @texuf.
+
+## ✨ Features
+ * Add typedoc-plugin-mdn-links ([\#3292](https://github.com/matrix-org/matrix-js-sdk/pull/3292)).
+ * Annotate events with executed push rule ([\#3284](https://github.com/matrix-org/matrix-js-sdk/pull/3284)). Contributed by @kerryarchibald.
+ * Element-R: pass device list change notifications into rust crypto-sdk ([\#3254](https://github.com/matrix-org/matrix-js-sdk/pull/3254)). Fixes vector-im/element-web#24795. Contributed by @florianduros.
+ * Support for MSC3882 revision 1 ([\#3228](https://github.com/matrix-org/matrix-js-sdk/pull/3228)). Contributed by @hughns.
+
+## 🐛 Bug Fixes
+ * Fix screen sharing on Firefox 113 ([\#3282](https://github.com/matrix-org/matrix-js-sdk/pull/3282)). Contributed by @tulir.
+ * Retry processing potential poll events after decryption ([\#3246](https://github.com/matrix-org/matrix-js-sdk/pull/3246)). Fixes vector-im/element-web#24568.
+ * Element-R: handle events which arrive before their keys ([\#3230](https://github.com/matrix-org/matrix-js-sdk/pull/3230)). Fixes vector-im/element-web#24489.
+
+Changes in [24.1.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v24.1.0) (2023-04-11)
+==================================================================================================
+
+## ✨ Features
+ * Allow via_servers property in findPredecessor (update to MSC3946) ([\#3240](https://github.com/matrix-org/matrix-js-sdk/pull/3240)). Contributed by @andybalaam.
+ * Fire `closed` event when IndexedDB closes unexpectedly ([\#3218](https://github.com/matrix-org/matrix-js-sdk/pull/3218)).
+ * Implement MSC3952: intentional mentions ([\#3092](https://github.com/matrix-org/matrix-js-sdk/pull/3092)). Fixes vector-im/element-web#24376.
+ * Send one time key count and unused fallback keys for rust-crypto ([\#3215](https://github.com/matrix-org/matrix-js-sdk/pull/3215)). Fixes vector-im/element-web#24795. Contributed by @florianduros.
+ * Improve `processBeaconEvents` hotpath ([\#3200](https://github.com/matrix-org/matrix-js-sdk/pull/3200)).
+ * Implement MSC3966: a push rule condition to check if an array contains a value ([\#3180](https://github.com/matrix-org/matrix-js-sdk/pull/3180)).
+
+## 🐛 Bug Fixes
+ * indexddb-local-backend - return the current sync to database promise … ([\#3222](https://github.com/matrix-org/matrix-js-sdk/pull/3222)). Contributed by @texuf.
+ * Revert "Add the call object to Call events" ([\#3236](https://github.com/matrix-org/matrix-js-sdk/pull/3236)).
+ * Handle group call redaction ([\#3231](https://github.com/matrix-org/matrix-js-sdk/pull/3231)). Fixes vector-im/voip-internal#128.
+ * Stop doing O(n^2) work to find event's home (`eventShouldLiveIn`) ([\#3227](https://github.com/matrix-org/matrix-js-sdk/pull/3227)). Contributed by @jryans.
+ * Fix bug where video would not unmute if it started muted ([\#3213](https://github.com/matrix-org/matrix-js-sdk/pull/3213)). Fixes vector-im/element-call#925.
+ * Fixes to event encryption in the Rust Crypto implementation ([\#3202](https://github.com/matrix-org/matrix-js-sdk/pull/3202)).
+
+Changes in [24.0.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v24.0.0) (2023-03-28)
+==================================================================================================
+
+## 🔒 Security
+ * Fixes for [CVE-2023-28427](https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=CVE-2023-28427) / GHSA-mwq8-fjpf-c2gr
+
+Changes in [23.5.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v23.5.0) (2023-03-15)
+==================================================================================================
+
+## ✨ Features
+ * Implement MSC3758: a push rule condition to match event properties exactly ([\#3179](https://github.com/matrix-org/matrix-js-sdk/pull/3179)).
+ * Enable group calls without video and audio track by configuration of MatrixClient ([\#3162](https://github.com/matrix-org/matrix-js-sdk/pull/3162)). Contributed by @EnricoSchw.
+ * Updates to protocol used for Sign in with QR code ([\#3155](https://github.com/matrix-org/matrix-js-sdk/pull/3155)). Contributed by @hughns.
+ * Implement MSC3873 to handle escaped dots in push rule keys ([\#3134](https://github.com/matrix-org/matrix-js-sdk/pull/3134)). Fixes undefined/matrix-js-sdk#1454.
+
+## 🐛 Bug Fixes
+ * Fix spec compliance issue around encrypted `m.relates_to` ([\#3178](https://github.com/matrix-org/matrix-js-sdk/pull/3178)).
+ * Fix reactions in threads sometimes causing stuck notifications ([\#3146](https://github.com/matrix-org/matrix-js-sdk/pull/3146)). Fixes vector-im/element-web#24000. Contributed by @justjanne.
+
 Changes in [23.4.0](https://github.com/matrix-org/matrix-js-sdk/releases/tag/v23.4.0) (2023-02-28)
 ==================================================================================================
 
